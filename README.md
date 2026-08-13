@@ -6,8 +6,10 @@
 엮고, 자막과 해시태그를 붙여서, 사람이 한 번 확인한 뒤 게시합니다.
 
 ```
-사진 폴더  →  사진 선별  →  9:16 영상 + 자막  →  글·해시태그  →  사람 확인  →  게시
+사진 폴더  →  사진 선별  →  영상 또는 사진  →  글·해시태그  →  사람 확인  →  게시
 ```
+
+**릴스(9:16 영상)** 와 **피드 사진·캐러셀** 을 둘 다 만들 수 있습니다.
 
 ---
 
@@ -79,13 +81,26 @@ IG_ACCESS_TOKEN=발급받은_토큰
 
 자막을 직접 쓰려면 `captions.txt` 에 한 줄에 한 컷씩 적습니다.
 
-**2. 릴스를 만듭니다**
+**2. 릴스나 게시물을 만듭니다**
 
 ```powershell
-.venv\Scripts\python.exe make_reel.py "C:\reels\사진\7월수업"
+.venv\Scripts\python.exe make_reel.py "C:\reels\사진\7월수업"    # 릴스 (9:16 영상)
+.venv\Scripts\python.exe make_post.py "C:\reels\사진\7월수업"    # 캐러셀 (사진 여러 장)
+.venv\Scripts\python.exe make_post.py "C:\reels\사진\7월수업" --one   # 사진 1장
 ```
 
-`out\` 에 영상·미리보기 이미지·게시글이 만들어지고, 승인 대기 목록에 올라갑니다.
+`out\` 에 결과물과 게시글이 만들어지고, 승인 대기 목록에 올라갑니다.
+
+| 만드는 것 | 규격 | 자막 |
+| --- | --- | --- |
+| 릴스 | 1080×1920 (9:16) | 사진 위에 얹습니다 |
+| 피드 사진·캐러셀 | 1080×1350 (4:5) | 글에만 넣습니다 |
+
+캐러셀은 기본 6장이고 `--count` 로 바꿉니다 (인스타 상한 10장).
+
+> **한 폴더는 대기 항목을 하나만 가집니다.** 같은 폴더로 릴스를 만든 뒤
+> 캐러셀을 만들면 앞의 것이 밀려납니다. 둘 다 올리시려면 하나를 게시한 뒤
+> 다른 것을 만드세요.
 
 **3. 영상을 인터넷에 잠깐 엽니다**
 
@@ -111,7 +126,8 @@ IG_ACCESS_TOKEN=발급받은_토큰
 
 | 파일 | 하는 일 |
 | --- | --- |
-| `make_reel.py` | 전체 흐름 — 사진 폴더 하나를 릴스로 |
+| `make_reel.py` | 사진 폴더 하나를 릴스로 |
+| `make_post.py` | 사진 폴더 하나를 피드 사진·캐러셀로 |
 | `watch_folder.py` | 여러 폴더를 감시하며 자동 생성 |
 | `approve.py` | 승인 대기 목록 확인·게시 |
 | `serve.py` | 영상을 임시 공개 주소로 여는 것 |
@@ -140,7 +156,10 @@ REELS_CAPTION_TOP=0.16        자막 위치 (0.10=위 / 0.30=아래)
 REELS_CAPTION_MAX_LINES=2     자막 최대 줄 수
 REELS_CUT_MIN=2.0             컷 최소 길이(초)
 REELS_CUT_MAX=4.0             컷 최대 길이(초)
-REELS_MAX_PHOTOS=4            최대 사진 수
+REELS_MAX_PHOTOS=4            릴스에 쓸 최대 사진 수
+REELS_CAROUSEL_MAX=6          캐러셀 사진 수 (최대 10)
+REELS_FEED_WIDTH=1080         피드 사진 가로
+REELS_FEED_HEIGHT=1350        피드 사진 세로 (1080 이면 정사각형)
 REELS_FACE_POLICY=exclude     exclude=제외 / blur=모자이크 / off=검사 안 함
 ```
 

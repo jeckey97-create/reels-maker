@@ -45,6 +45,16 @@ AUDIO_EXTS = {".mp3", ".m4a", ".wav", ".aac", ".ogg"}
 # --- 영상 규격 (PLAN.md) ------------------------------------------------
 WIDTH = 1080
 HEIGHT = 1920
+
+# --- 피드 사진 · 캐러셀 -------------------------------------------------
+# 인스타 피드는 1:1 / 4:5 / 1.91:1 을 받는다. 4:5 가 화면을 가장 많이
+# 차지해서 눈에 잘 띈다. 정사각형으로 하려면 1080 으로 바꾼다.
+FEED_WIDTH = _env_int("REELS_FEED_WIDTH", 1080)
+FEED_HEIGHT = _env_int("REELS_FEED_HEIGHT", 1350)
+# 캐러셀에 넣을 사진 수. 인스타 상한은 10장이다.
+CAROUSEL_MAX = _env_int("REELS_CAROUSEL_MAX", 6)
+# 피드 사진 JPEG 품질
+FEED_QUALITY = _env_int("REELS_FEED_QUALITY", 90)
 FPS = 30
 # 사진당 노출 시간(초). 전환 시간은 여기서 겹친다.
 # 자막 길이에 따라 컷마다 다르게 잡는다 — 긴 훅은 읽을 시간이 필요하고

@@ -44,6 +44,34 @@ def load_upright(path: Path) -> Image.Image:
     return img.convert("RGB")
 
 
+def crop_to_feed(img: Image.Image) -> Image.Image:
+    """피드용 4:5 로 중앙 크롭. 위쪽을 조금 더 남긴다 (사람 얼굴이 위에 온다)."""
+    return ImageOps.fit(
+        img, (cfg.FEED_WIDTH, cfg.FEED_HEIGHT), method=Image.LANCZOS,
+        centering=(0.5, 0.4),
+    )
+
+
+def prepare_feed_photo(src: Path, dst: Path,
+                       blur_boxes: list | None = None,
+                       crop_box: tuple | None = None) -> Path:
+    """사진 1장 → 피드용 JPG.
+
+    릴스와 달리 자막을 태우지 않는다. 피드는 글이 사진 아래에 따로 붙어서
+    사진 위에 글자를 얹으면 오히려 지저분해진다.
+
+    초상권 처리(잘라내기·모자이크)는 릴스와 똑같이 적용한다.
+    """
+    img = load_upright(src)
+    if crop_box:
+        img = img.crop(crop_box)
+    if blur_boxes:
+        img = face_guard.blur_faces(img, blur_boxes)
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    crop_to_feed(img).convert("RGB").save(dst, "JPEG", quality=cfg.FEED_QUALITY)
+    return dst
+
+
 def crop_to_reel(img: Image.Image) -> Image.Image:
     """9:16 으로 꽉 차게 중앙 크롭한다 (레터박스 없음)."""
     return ImageOps.fit(
