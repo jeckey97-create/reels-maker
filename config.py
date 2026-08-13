@@ -65,8 +65,9 @@ CUT_SECONDS_PER_CHAR = float(_env("REELS_CUT_PER_CHAR", "0.085"))  # 글자당 �
 CUT_MIN_SECONDS = float(_env("REELS_CUT_MIN", "2.0"))
 CUT_MAX_SECONDS = float(_env("REELS_CUT_MAX", "4.0"))
 CROSSFADE = 0.5
-MIN_PHOTOS = 3
-MAX_PHOTOS = 4  # 3초 × 4장 ≈ 10초
+MIN_PHOTOS = _env_int("REELS_MIN_PHOTOS", 3)
+# 책 7.6 이 .env 로 조절하라고 안내한다. 하드코딩이면 안내가 거짓말이 된다.
+MAX_PHOTOS = _env_int("REELS_MAX_PHOTOS", 4)  # 3초 × 4장 ≈ 10초
 # 인스타 권장 영상 비트레이트(kbps). 최소 3500, 권장 5000~10000.
 VIDEO_BITRATE_K = _env_int("REELS_VIDEO_BITRATE_K", 6000)
 # 켄번스 확대율 (1.0 = 없음)
