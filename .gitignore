@@ -1,0 +1,14 @@
+.env
+.venv/
+profile/
+screenshots/
+__pycache__/
+out/
+state.json
+assets/models/*.onnx
+assets/music/*.mp3
+assets/music/*.wav
+assets/music/*.m4a
+.work/
+inbox/
+music_index.json

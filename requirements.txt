@@ -1,0 +1,6 @@
+# 이 프로그램이 쓰는 라이브러리.
+#   .venv\Scripts\python.exe -m pip install -r requirements.txt
+python-dotenv>=1.0
+Pillow>=10.4
+# 초상권 안전장치(얼굴 감지)에 쓴다. 없으면 사진이 전부 제외된다.
+opencv-python>=4.9
