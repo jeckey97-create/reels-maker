@@ -138,6 +138,7 @@ IG_ACCESS_TOKEN=발급받은_토큰
 | `images.py` | 9:16 크롭·자막 |
 | `video.py` | ffmpeg 인코딩 (켄번스·크로스페이드) |
 | `audio_mix.py` | 배경음악 합성 |
+| `make_music.py` | 밝고 가사 없는 배경음악 직접 만들기 |
 | `post_text.py` | 자막·게시글·해시태그 |
 | `graph_api.py` | Instagram Graph API 게시 |
 | `refresh_token.py` | 토큰 갱신 (60일마다) |
@@ -171,6 +172,14 @@ REELS_FACE_POLICY=exclude     exclude=제외 / blur=모자이크 / off=검사 �
 **인스타그램 인기 음원은 API 로 붙일 수 없습니다.** Meta 가 막아뒀습니다.
 자동 게시하면 무음이거나 직접 준비한 로열티프리 음원만 들어갑니다.
 인기 음원을 쓰시려면 `deliver.py` 로 파일을 받아 휴대폰에서 올리세요.
+
+**배경음악은 `assets/music/background.mp3` 에 하나 들어 있습니다.** 밝고 가사
+없는 60초짜리이고, `make_music.py` 로 만든 것이라 저작권자가 없습니다. 다른
+느낌이 필요하면 다시 만드세요.
+
+```powershell
+.venv\Scripts\python.exe make_music.py --bpm 124 --key A --seconds 45
+```
 
 **액세스 토큰은 60일마다 만료됩니다.** 50일쯤에 `refresh_token.py` 를 돌리면
 그날부터 다시 60일이 됩니다. 만료된 뒤에는 갱신이 안 되고 재발급해야 합니다.

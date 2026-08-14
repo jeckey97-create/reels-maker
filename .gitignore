@@ -9,6 +9,8 @@ assets/models/*.onnx
 assets/music/*.mp3
 assets/music/*.wav
 assets/music/*.m4a
+# make_music.py 로 만든 곡은 저작권자가 없으니 같이 들고 다닌다.
+!assets/music/background.mp3
 .work/
 inbox/
 music_index.json
