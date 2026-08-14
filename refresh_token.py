@@ -62,7 +62,7 @@ def main() -> int:
     args = ap.parse_args()
 
     if not cfg.IG_ACCESS_TOKEN:
-        print("[!] .env 에 IG_ACCESS_TOKEN 이 없다. SETUP.md 3단계를 먼저 해라.")
+        print("[!] .env 에 IG_ACCESS_TOKEN 이 없다. 전자책 5장에서 토큰을 발급받아 .env 에 넣어라.")
         return 2
 
     code, data = _call({"grant_type": "ig_refresh_token",
@@ -73,7 +73,7 @@ def main() -> int:
         print()
         print("    이미 만료됐으면 갱신이 안 된다. Meta 개발자 사이트에서 새로 발급받아라:")
         print("      https://developers.facebook.com/  →  내 앱  →  Instagram  →  Generate access token")
-        print("    자세한 절차는 SETUP.md 3단계.")
+        print("    자세한 절차는 전자책 5장.")
         return 1
 
     expires = int(data.get("expires_in", 0))

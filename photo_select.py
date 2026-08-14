@@ -59,6 +59,16 @@ BRIGHT_MAX = 225       # 이보다 밝으면 날아간 것
 MIN_LONG_EDGE = 1200   # 긴 변이 이보다 짧으면 화질 부족
 DUP_HASH_DIST = 6      # aHash 해밍거리가 이 이하면 같은 사진 취급
 
+# 얼굴 감지기 자체가 안 도는 경우. 사진 탓이 아니라 설치 문제라서 안내가 다르다.
+NO_DETECTOR = "NO_DETECTOR"
+
+
+def _reason_text(reason: str) -> str:
+    if reason == NO_DETECTOR:
+        return "얼굴 감지기를 쓸 수 없어 검사 못 함 (사진 문제 아님)"
+    return reason
+
+
 @dataclass
 class Shot:
     path: Path
@@ -153,8 +163,7 @@ def measure(path: Path, folder: Path | None = None,
         if not info.available:
             # 여기서 통과시키면 안 된다. 얼굴을 못 거른 채 올라가는 것보다
             # 아무것도 안 만드는 쪽이 낫다. 대신 원인을 정확히 알려준다.
-            shot.rejected = ("얼굴 감지기를 쓸 수 없다 — py setup_check.py 로 "
-                             "모델과 opencv 를 확인해라")
+            shot.rejected = NO_DETECTOR   # choose() 가 따로 안내한다
             return shot
         shot.faces = info.count
         shot.face_ratio = info.max_ratio
@@ -213,13 +222,23 @@ def choose(photos: list[Path], want: int, verbose: bool = True,
     if verbose:
         print(f"[선별] 후보 {len(shots)}장 → 통과 {len(ok)}장, 제외 {len(dropped)}장")
         for s in dropped[:8]:
-            print(f"    - {s.path.name}: {s.rejected}")
+            print(f"    - {s.path.name}: {_reason_text(s.rejected)}")
         if len(dropped) > 8:
             print(f"    - … 외 {len(dropped)-8}장")
 
     if not ok:
-        faced = [s for s in dropped if "얼굴" in s.rejected]
-        if faced:
+        # 감지기가 아예 안 도는 것과 얼굴이 실제로 걸린 것은 원인도 해법도 다르다.
+        # 뭉뚱그리면 초보자가 엉뚱한 데를 고치느라 시간을 버린다.
+        broken = [s for s in dropped if s.rejected == NO_DETECTOR]
+        faced = [s for s in dropped if s.rejected != NO_DETECTOR and "얼굴" in s.rejected]
+        if broken:
+            print()
+            print(f"[!] 쓸 수 있는 사진이 없다. 얼굴 감지기가 돌지 않아 {len(broken)}장을 검사하지 못했다.")
+            print("    사진 문제가 아니다. 프로그램 준비물이 빠진 것이다.")
+            print("    확인: py setup_check.py")
+            print("    → '얼굴 감지 모델' 줄에 [ 문제 ] 가 뜬다. 거기 적힌 대로 하면 된다.")
+            print("      (모델 파일이 없거나 깨졌거나, opencv 가 안 깔린 경우다. 전자책 6.6)")
+        elif faced:
             print()
             print(f"[!] 쓸 수 있는 사진이 없다. {len(faced)}장이 얼굴 식별로 걸렸다.")
             print("    선택지:")

@@ -62,6 +62,16 @@ def check_face_model() -> None:
     파일만 검사하면 opencv 가 없을 때 여기서는 OK 가 뜨는데 정작 릴스를
     만들 때 사진이 전부 제외된다. 초보자가 원인을 찾을 수 없다.
     """
+    if cfg.FACE_MODEL.exists() and cfg.FACE_MODEL.stat().st_size < 100_000:
+        # 정상 파일은 약 227KB 다. 내려받다 끊기거나 우클릭 저장으로 HTML 이
+        # 저장되면 몇 백 바이트짜리가 남는데, 크기를 안 보면 OK 로 지나간다.
+        say(NO, "얼굴 감지 모델이 깨졌다",
+            f"{cfg.FACE_MODEL.name} 이 {cfg.FACE_MODEL.stat().st_size:,}바이트뿐이다. "
+            "정상은 약 227KB 다. 내려받다 만 파일로 보인다.",
+            "그 파일을 지우고 6.6 의 주소에서 다시 받아라. "
+            "우클릭 '다른 이름으로 저장' 말고 주소를 눌러서 받아야 한다.")
+        return
+
     if not cfg.FACE_MODEL.exists():
         say(NO, "얼굴 감지 모델 없음",
             "학생 얼굴이 걸러지지 않는다. 사진이 전부 제외되어 릴스가 안 만들어진다.",
@@ -86,7 +96,7 @@ def check_env() -> bool:
     """토큰만 있으면 된다. 사용자 ID 는 토큰으로 조회한다."""
     if not cfg.IG_ACCESS_TOKEN:
         say(NO, "액세스 토큰 없음", ".env 의 IG_ACCESS_TOKEN 이 비어 있다.",
-            "SETUP.md 3단계에서 토큰을 발급받아 .env 에 넣어라")
+            "전자책 5장에서 토큰을 발급받아 .env 에 넣어라")
         return False
     extra = f" / IG_USER_ID 직접 지정됨" if cfg.IG_USER_ID else " / 사용자 ID 는 토큰으로 조회한다"
     say(OK, ".env 값", f"토큰 {len(cfg.IG_ACCESS_TOKEN)}자{extra}")
@@ -115,7 +125,7 @@ def check_token() -> None:
     code, data = _get(url)
     if code != 200:
         msg = (data.get("error") or {}).get("message", "알 수 없는 오류")
-        fix = "토큰이 만료됐거나 잘못됐다. SETUP.md 의 '토큰 발급'을 다시 하라."
+        fix = "토큰이 만료됐거나 잘못됐다. 전자책 5장을 다시 하라."
         if "session" in msg.lower() or "expired" in msg.lower():
             fix = "토큰 만료다. py refresh_token.py 로 갱신하거나 새로 발급받아라."
         say(NO, "토큰 확인 실패", f"HTTP {code}: {msg}", fix)
@@ -189,7 +199,7 @@ def main() -> int:
         for i, p in enumerate(_problems, 1):
             print(f"   {i}. {p}")
         print()
-        print(" 자세한 절차는 SETUP.md 를 봐라.")
+        print(" 자세한 절차는 전자책 6장(설치)과 9장(문제 해결)을 봐라.")
         return 1
     print(" 전부 준비됐다. py approve.py --publish <이름> 으로 게시할 수 있다.")
     return 0
