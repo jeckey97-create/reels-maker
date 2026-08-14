@@ -116,7 +116,8 @@ IG_ACCESS_TOKEN=발급받은_토큰
 
 ```powershell
 .venv\Scripts\python.exe approve.py                    # 대기 목록
-.venv\Scripts\python.exe approve.py --show "7월수업"    # 내용 확인
+.venv\Scripts\python.exe approve.py --show "7월수업"    # 무엇이 올라가나
+.venv\Scripts\python.exe approve.py --check "7월수업"   # 올릴 수 있는 상태인가 (안 올림)
 .venv\Scripts\python.exe approve.py --publish "7월수업" # 게시
 ```
 
@@ -129,7 +130,7 @@ IG_ACCESS_TOKEN=발급받은_토큰
 | `make_reel.py` | 사진 폴더 하나를 릴스로 |
 | `make_post.py` | 사진 폴더 하나를 피드 사진·캐러셀로 |
 | `watch_folder.py` | 여러 폴더를 감시하며 자동 생성 |
-| `approve.py` | 승인 대기 목록 확인·게시 |
+| `approve.py` | 승인 대기 목록 확인·점검(`--check`)·게시 |
 | `serve.py` | 영상을 임시 공개 주소로 여는 것 |
 | `photo_select.py` | 사진 선별 (선명도·노출·중복) |
 | `face_guard.py` | 초상권 안전장치 (YuNet) |

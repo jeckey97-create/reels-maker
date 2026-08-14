@@ -9,6 +9,7 @@ make_reel.py / watch_folder.py 는 영상을 만들기만 하고 게시하지 �
 사용법:
     py approve.py                    # 대기 중인 릴스 목록
     py approve.py --show 7.22        # 영상 경로와 글 전문 보기
+    py approve.py --check 7.22       # 올릴 수 있는 상태인지만 확인 (리허설)
     py approve.py --publish 7.22     # 승인하고 게시
     py approve.py --reject 7.22      # 올리지 않기로 하고 목록에서 뺀다
 """
@@ -19,6 +20,9 @@ import argparse
 import json
 import sys
 import time
+import urllib.error
+import urllib.parse
+import urllib.request
 from pathlib import Path
 
 import config as cfg
@@ -138,6 +142,7 @@ def cmd_list(state: dict) -> int:
         print(f"    만든 시각: {rec.get('at')}")
         print()
     print("확인:  py approve.py --show <이름>")
+    print("점검:  py approve.py --check <이름>    (올릴 수 있는 상태인지만 본다)")
     print("게시:  py approve.py --publish <이름>")
     return 0
 
@@ -170,6 +175,129 @@ def cmd_show(state: dict, name: str) -> int:
         print("\n--- 게시글 ---")
         print(txt.read_text(encoding="utf-8"))
     print("\n사진을 직접 확인해라. 학생 얼굴이 들어갔다면 동의 범위를 먼저 따져야 한다.")
+    return 0
+
+
+def _caption_path(key: str, first: Path, kind: str) -> Path:
+    """게시글 파일 위치. 릴스와 피드가 다르다."""
+    if kind == "reel":
+        return first.with_suffix(".txt")
+    return first.with_name(Path(key).name + "-post.txt")
+
+
+def cmd_check(state: dict, name: str) -> int:
+    """게시하지 않고 '지금 올릴 수 있는 상태인지'만 확인한다 (리허설).
+
+    준비를 다 해놓고도 막상 올릴 때 실패하는 지점은 늘 같다 —
+    터널을 안 켰거나, 토큰이 만료됐거나, 글 파일이 없거나.
+    --publish 를 누르기 전에 그 셋을 미리 짚어준다.
+    """
+    hit = _find(state, name)
+    if not hit:
+        print(f"[!] '{name}' 을 찾지 못했다. 목록: py approve.py")
+        return 2
+    key, rec = hit
+    kind = rec.get("kind", "reel")
+    paths = [Path(p) for p in (rec.get("files") or [rec.get("video", "")])]
+    problems: list[str] = []
+
+    print(f"[i] {Path(key).name}  [{KIND_NAME.get(kind, '릴스')}]  게시 전 점검")
+    print("    (이 명령은 아무것도 올리지 않는다)\n")
+
+    # 1. 상태
+    if rec.get("status") != PENDING:
+        print(f"[ 문제 ] 상태가 '{rec.get('status')}' 다. 대기 중인 것만 올릴 수 있다.")
+        if rec.get("status") == PUBLISHED:
+            print("         이미 올린 것이다. 다시 올리려면 사진 폴더로 다시 만들어라.")
+        problems.append("상태")
+    else:
+        print("[ OK ] 승인 대기 중")
+
+    # 2. 파일
+    missing = [p for p in paths if not p.exists()]
+    if missing:
+        print(f"[ 문제 ] 파일이 없다: {missing[0]}")
+        print("         out 폴더를 지웠다면 7장(make_reel.py / make_post.py)부터 다시 해라.")
+        problems.append("파일")
+    else:
+        total = sum(p.stat().st_size for p in paths)
+        print(f"[ OK ] 파일 {len(paths)}개 ({total/1024/1024:.1f}MB)")
+
+    # 3. 게시글
+    txt = _caption_path(key, paths[0], kind) if paths else None
+    if txt and txt.exists():
+        caption = txt.read_text(encoding="utf-8")
+        tags = caption.count("#")
+        if len(caption) > 2200:
+            print(f"[ 문제 ] 글이 {len(caption)}자다. 인스타 상한은 2,200자다.")
+            problems.append("글 길이")
+        elif tags > 30:
+            print(f"[ 문제 ] 해시태그가 {tags}개다. 인스타 상한은 30개다.")
+            problems.append("해시태그 수")
+        else:
+            print(f"[ OK ] 게시글 {len(caption)}자 / 해시태그 {tags}개")
+    else:
+        print(f"[ 문제 ] 게시글 파일이 없다: {txt}")
+        problems.append("게시글")
+
+    # 4. 공개 주소 — 인스타 서버가 실제로 파일을 받아갈 수 있어야 한다
+    if not cfg.PUBLIC_VIDEO_BASE:
+        print("[ 문제 ] 공개 주소가 없다. 다른 창에서 py serve.py 를 먼저 켜라.")
+        problems.append("공개 주소")
+    else:
+        base = cfg.PUBLIC_VIDEO_BASE.rstrip("/")
+        url = f"{base}/{urllib.parse.quote(paths[0].name)}" if paths else base
+        try:
+            req = urllib.request.Request(url, method="HEAD")
+            with urllib.request.urlopen(req, timeout=30) as r:
+                ctype = r.headers.get("Content-Type", "")
+                if r.status == 200:
+                    print(f"[ OK ] 공개 주소로 파일이 받아진다 ({ctype})")
+                else:
+                    print(f"[ 문제 ] 공개 주소 응답이 이상하다: HTTP {r.status}")
+                    problems.append("공개 주소")
+        except Exception as e:
+            print(f"[ 문제 ] 공개 주소로 파일을 받을 수 없다: {e}")
+            print("         serve.py 창을 닫았거나 주소가 바뀐 것이다. 다시 켜라.")
+            problems.append("공개 주소")
+
+    # 5. 토큰
+    if not cfg.IG_ACCESS_TOKEN:
+        print("[ 문제 ] .env 에 IG_ACCESS_TOKEN 이 없다. 전자책 5장.")
+        problems.append("토큰")
+    else:
+        me = (f"https://graph.instagram.com/{cfg.GRAPH_VERSION}/me?"
+              + urllib.parse.urlencode({"fields": "username,account_type",
+                                        "access_token": cfg.IG_ACCESS_TOKEN}))
+        try:
+            with urllib.request.urlopen(me, timeout=30) as r:
+                data = json.loads(r.read().decode())
+            print(f"[ OK ] 토큰 유효 — @{data.get('username')} "
+                  f"({data.get('account_type')})")
+            if data.get("account_type") not in ("BUSINESS", "MEDIA_CREATOR", "CREATOR"):
+                print("[ 문제 ] 개인 계정으로는 자동 게시가 안 된다. "
+                      "인스타 앱에서 프로페셔널 계정으로 바꿔라 (전자책 1장).")
+                problems.append("계정 종류")
+        except Exception as e:
+            # Graph API 오류는 본문에 진짜 이유가 들어 있다. 그걸 보여줘야
+            # "HTTP Error 400" 만 보고 헤매지 않는다.
+            detail = str(e)
+            if isinstance(e, urllib.error.HTTPError):
+                try:
+                    body = json.loads(e.read().decode())
+                    detail = (body.get("error") or {}).get("message", detail)
+                except Exception:
+                    pass
+            print(f"[ 문제 ] 토큰이 안 먹는다: {detail}")
+            print("         py refresh_token.py 로 갱신하거나 5장에서 새로 발급받아라.")
+            problems.append("토큰")
+
+    print()
+    if problems:
+        print(f"[!] 지금 올리면 실패한다. 막힌 곳 {len(problems)}개: {', '.join(problems)}")
+        return 1
+    print(f"[+] 전부 준비됐다. 올리려면:")
+    print(f"    py approve.py --publish \"{Path(key).name}\"")
     return 0
 
 
@@ -234,6 +362,8 @@ def cmd_reject(state: dict, name: str) -> int:
 def main() -> int:
     ap = argparse.ArgumentParser(description="승인 대기 릴스 확인·게시")
     ap.add_argument("--show", metavar="이름")
+    ap.add_argument("--check", metavar="이름",
+                    help="게시하지 않고 올릴 수 있는 상태인지만 확인")
     ap.add_argument("--publish", metavar="이름")
     ap.add_argument("--reject", metavar="이름")
     args = ap.parse_args()
@@ -241,6 +371,8 @@ def main() -> int:
     state = load_state()
     if args.show:
         return cmd_show(state, args.show)
+    if args.check:
+        return cmd_check(state, args.check)
     if args.publish:
         return cmd_publish(state, args.publish)
     if args.reject:
