@@ -131,6 +131,25 @@ ORIGINAL_AUDIO_VOLUME = float(_env("REELS_ORIGINAL_AUDIO_VOLUME", "1.0"))
 FADE_OUT_SECONDS = float(_env("REELS_FADE_OUT_SECONDS", "2"))
 LOOP_MUSIC = _env("REELS_LOOP_MUSIC", "true").lower() not in ("0", "false", "no")
 
+# --- 계정 성격 (post_text.py) -------------------------------------------
+# 아래 세 가지는 **업종마다 달라야 하는 값**이다. 만든 사람이 강사여서
+# 기본값이 교육·강의 계정 기준으로 들어가 있다. 카페든 공방이든 업종이
+# 다르면 .env 에서 바꿔라. 안 바꾸면 남의 업종 해시태그가 붙어 나간다.
+#
+# 주제 사전(REELS_TAGS_FILE)은 `키워드 = #태그 #태그` 형식의 텍스트 파일이다.
+# 파일을 두면 내장 사전을 **대체**한다.
+DEFAULT_TAGS = _env("REELS_DEFAULT_TAGS", "#인공지능 #코딩교육 #에듀테크").split()
+CTA_LIST = [c.strip() for c in _env(
+    "REELS_CTA",
+    "수업 문의는 프로필 링크로 주세요 😃"
+    "|강의·연수 문의는 DM 주세요."
+    "|수업에 써보고 싶으시면 댓글로 알려주세요 💬"
+    "|커리큘럼이 궁금하시면 DM 주세요.").split("|") if c.strip()]
+# 프로그램 폴더에 두는 사전 파일들. (사진 폴더 안의 tags.txt 는 그 릴스에만
+# 붙는 추가 태그라 이름이 겹치지 않게 tag_rules.txt 로 둔다.)
+TAGS_FILE = Path(_env("REELS_TAG_RULES", str(BASE_DIR / "tag_rules.txt")))
+CAPTION_POOL_FILE = Path(_env("REELS_CAPTION_POOL", str(BASE_DIR / "caption_pool.txt")))
+
 # --- 인스타 게시 --------------------------------------------------------
 IG_USER_ID = _env("IG_USER_ID", "")
 IG_ACCESS_TOKEN = _env("IG_ACCESS_TOKEN", "")

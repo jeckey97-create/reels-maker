@@ -1,5 +1,16 @@
 """릴스 글(캡션) · 해시태그 만들기.
 
+**여기 값들은 업종을 탄다.** 만든 사람이 강사라 기본값이 교육·강의 계정
+기준이다. 업종이 다르면 .env 에서 바꿔야 남의 업종 태그가 안 붙는다:
+
+    REELS_DEFAULT_TAGS   주제를 못 잡았을 때 붙는 기본 해시태그
+    REELS_CTA            글 마지막 문장 (여러 개는 | 로 나눈다. 하나를 고른다)
+    REELS_TAG_RULES      키워드 → 해시태그 사전 파일 (tag_rules.txt)
+    REELS_CAPTION_POOL   자막 후보 문구 파일 (caption_pool.txt)
+
+기본 자막 문구는 아이들 수업 현장 말투다. 카페·공방이면 caption_pool.txt 를
+두어 통째로 갈아끼운다. 자막을 직접 쓸 거면 사진 폴더의 captions.txt 가 우선이다.
+
 @ai.co.lab (수현쌤) 계정의 실제 릴스 글을 보고 톤을 맞췄다:
   - 훅 한 줄 먼저, 그 다음 빈 줄
   - 존댓말 구어체 ("~했어요", "~더라고요")
@@ -15,9 +26,11 @@ import random
 import re
 from pathlib import Path
 
+import config as cfg
+
 # 주제별 해시태그. 폴더 이름/자막에 키워드가 있으면 붙는다.
-# 실제 계정에서 쓰던 태그를 그대로 반영했다.
-TOPIC_TAGS = {
+# 실제 계정(교육·강의)에서 쓰던 태그다. 업종이 다르면 tags.txt 로 갈아끼운다.
+BUILTIN_TOPIC_TAGS = {
     "반도체": ["#반도체교육", "#반도체", "#진로교육"],
     "로봇": ["#로봇코딩", "#휴머노이드", "#피지컬ai"],
     "알파미니": ["#알파미니", "#로봇코딩", "#인공지능"],
@@ -32,22 +45,40 @@ TOPIC_TAGS = {
     "미드저니": ["#미드저니", "#AI이미지"],
 }
 
-# 주제를 못 잡았을 때 쓰는 기본값 (계정 정체성에 맞춤)
-DEFAULT_TAGS = ["#인공지능", "#코딩교육", "#에듀테크"]
+def load_topic_tags() -> dict[str, list[str]]:
+    """키워드 → 해시태그 사전.
 
-# 피드 글 마지막에 붙는 CTA. 자막이 아니라 여기서 문의를 유도한다.
-CTAS = [
-    "수업 문의는 프로필 링크로 주세요 😃",
-    "강의·연수 문의는 DM 주세요.",
-    "수업에 써보고 싶으시면 댓글로 알려주세요 💬",
-    "커리큘럼이 궁금하시면 DM 주세요.",
-]
+    tags.txt 가 있으면 그것만 쓴다 (내장 교육 사전을 **대체**한다).
+    업종이 다른 사람이 내장 사전 위에 얹는 방식이면 #코딩교육 이 계속
+    따라붙어서, 갈아끼우는 쪽이 맞다.
+
+        형식:  키워드 = #태그1 #태그2
+        예:    원두 = #스페셜티커피 #홈카페
+    """
+    f = cfg.TAGS_FILE
+    if not f.exists():
+        return BUILTIN_TOPIC_TAGS
+    table: dict[str, list[str]] = {}
+    for line in f.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, vals = line.split("=", 1)
+        tags = [t if t.startswith("#") else f"#{t}" for t in vals.split()]
+        if key.strip() and tags:
+            table[key.strip().lower()] = tags
+    return table or BUILTIN_TOPIC_TAGS
+
+
+# 주제를 못 잡았을 때 쓰는 기본값 / 글 마지막 CTA — 둘 다 .env 로 바꾼다
+DEFAULT_TAGS = cfg.DEFAULT_TAGS
+CTAS = cfg.CTA_LIST
 
 
 def _match_tags(*sources: str) -> list[str]:
     low = " ".join(sources).lower()
     tags: list[str] = []
-    for key, vals in TOPIC_TAGS.items():
+    for key, vals in load_topic_tags().items():
         if key in low:
             for v in vals:
                 if v not in tags:
@@ -114,11 +145,11 @@ def build_caption(folder_name: str, captions: list[str],
     return "\n".join(parts)
 
 
-# 이 계정은 **수업 홍보**용이다. 자막은 궁금하게 만드는 게 아니라
-# 무슨 수업인지 알려주는 역할이다. "맞혀보세요" 같은 퀴즈형은 쓰지 않는다.
+# 기본 톤은 **홍보**다. 자막은 궁금하게만 만드는 게 아니라 무엇인지
+# 알려주는 역할이다. "맞혀보세요" 같은 퀴즈형은 쓰지 않는다.
 #
 # 원칙:
-#   · 첫 컷에서 **어디서 무슨 수업인지** 밝힌다. 이게 홍보의 핵심이다.
+#   · 첫 컷에서 **어디서 무엇을 했는지** 밝힌다. 이게 홍보의 핵심이다.
 #   · 중간은 무엇을 어떻게 하는지 구체적으로.
 #   · 마지막은 다음으로 이어지게 닫는다.
 #   · @ai.co.lab 톤 — 존댓말 구어체, 짧게.
@@ -164,7 +195,7 @@ CURIOSITY = [
     "생각보다 쉽지 않았던 이유",
     "예상 못한 반응이 나왔어요",
     "이게 진짜 되네요^^",
-    "아이들 반응이 달랐던 이유",
+    "반응이 달랐던 이유",
 ]
 
 
@@ -219,8 +250,31 @@ def _hook(info: dict) -> str:
     return tail
 
 
+def load_caption_pool() -> dict[str, list[str]]:
+    """자막 후보 문구. caption_pool.txt 가 있으면 그 유형만 갈아끼운다.
+
+        형식:  유형 = 문구 | 문구 | 문구
+        유형:  result wide practice collab tool closeup other ending
+
+    기본값은 아이들 수업 말투라 업종이 다르면 그대로 쓸 수 없다.
+    적어둔 유형만 바뀌고, 안 적은 유형은 기본값이 남는다.
+    """
+    if not cfg.CAPTION_POOL_FILE.exists():
+        return {}
+    table: dict[str, list[str]] = {}
+    for line in cfg.CAPTION_POOL_FILE.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        kind, vals = line.split("=", 1)
+        lines = [v.strip() for v in vals.split("|") if v.strip()]
+        if kind.strip() and lines:
+            table[kind.strip().lower()] = lines
+    return table
+
+
 def _line_for(kind: str, info: dict, rnd) -> str:
-    """중간 컷 — **아이들의 반응과 감정**을 적는다.
+    """중간 컷 — **그 자리의 반응과 감정**을 적는다.
 
     @ai.co.lab 실제 자막을 보고 맞춘 톤이다:
         "둘이 동시에 외침!"  "알파미니 방구 뽕~~~~!!"
@@ -271,6 +325,7 @@ def _line_for(kind: str, info: dict, rnd) -> str:
             "계속 이어집니다~~~",
         ],
     }
+    pools.update(load_caption_pool())   # 업종에 맞게 갈아끼운 것이 있으면 그것
     return rnd.choice(pools.get(kind, pools["other"]))
 
 
@@ -308,7 +363,7 @@ def build_story_captions(kinds: list[str], seed: str = "",
         used.add(line)
         out.append(line)
     if len(kinds) > 1:
-        out.append(rnd.choice(ENDINGS))
+        out.append(rnd.choice(load_caption_pool().get("ending") or ENDINGS))
     return out
 
 
