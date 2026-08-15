@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import urllib.parse
 from pathlib import Path
 
 import approve
@@ -146,8 +147,10 @@ def main() -> int:
     approve.register_pending(folder, out, images.folder_fingerprint(folder))
     print(f"[i] 승인 대기에 넣었다. 확인: py approve.py --show \"{folder.name}\"")
 
+    # 한글 파일명은 인코딩해서 보낸다 (approve.py 의 같은 처리 참고)
     video_url = args.video_url or (
-        f"{cfg.PUBLIC_VIDEO_BASE.rstrip('/')}/{out.name}" if cfg.PUBLIC_VIDEO_BASE else ""
+        f"{cfg.PUBLIC_VIDEO_BASE.rstrip('/')}/{urllib.parse.quote(out.name)}"
+        if cfg.PUBLIC_VIDEO_BASE else ""
     )
     if args.publish and not video_url:
         print("[!] 게시하려면 공개 URL 이 필요하다. --video-url 또는 .env 의 REELS_PUBLIC_BASE 를 채워라.")

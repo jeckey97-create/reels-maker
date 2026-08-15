@@ -154,7 +154,7 @@ def mix_audio(
     if not ok:
         raise AudioMixError(hint)
 
-    music_volume = cfg.MUSIC_VOLUME if music_volume is None else music_volume
+    # 볼륨은 나중에(원본 음성 유무를 안 뒤에) 정한다 — 아래 참고
     original_volume = cfg.ORIGINAL_AUDIO_VOLUME if original_volume is None else original_volume
     fade_out_seconds = cfg.FADE_OUT_SECONDS if fade_out_seconds is None else fade_out_seconds
     loop_music = cfg.LOOP_MUSIC if loop_music is None else loop_music
@@ -181,6 +181,11 @@ def mix_audio(
         raise AudioMixError(f"영상 길이를 읽지 못했다: {video}")
 
     keep_original = has_real_audio(video) and original_volume > 0
+
+    # 원본 음성이 있으면 그 아래에 깔고, 없으면 음악이 주인공이다.
+    # 같은 0.15 를 쓰면 사진 슬라이드에서 거의 안 들린다.
+    if music_volume is None:
+        music_volume = cfg.MUSIC_VOLUME if keep_original else cfg.MUSIC_VOLUME_SOLO
     fade = max(0.0, min(fade_out_seconds, dur))
     fade_start = max(0.0, dur - fade)
 
@@ -204,6 +209,10 @@ def mix_audio(
     music_chain.append(f"volume={music_volume}")
     if fade > 0:
         music_chain.append(f"afade=t=out:st={fade_start:.3f}:d={fade:.3f}")
+    # 음악만 나갈 때는 레벨을 고르게 맞춰준다. 직접 만든 음원이나 조용한
+    # 파일도 들리는 크기로 나가게 한다.
+    if not keep_original:
+        music_chain.append("dynaudnorm=f=200:g=5:p=0.9")
     music_chain.append("aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo")
 
     args: list[str] = [cfg.FFMPEG, "-y", "-i", str(video), "-i", str(music)]

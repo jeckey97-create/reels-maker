@@ -327,7 +327,9 @@ def cmd_publish(state: dict, name: str) -> int:
         return 2
 
     base = cfg.PUBLIC_VIDEO_BASE.rstrip("/")
-    urls = [f"{base}/{p.name}" for p in paths]
+    # 파일명이 한글이면 반드시 인코딩해야 한다. 날 한글이 섞인 URL 을 보내면
+    # 인스타가 영상을 못 받아가고 컨테이너가 ERROR 로 끝난다 — 이유는 안 알려준다.
+    urls = [f"{base}/{urllib.parse.quote(p.name)}" for p in paths]
 
     if kind == "reel":
         caption = paths[0].with_suffix(".txt").read_text(encoding="utf-8")

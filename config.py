@@ -126,7 +126,10 @@ FACE_MODEL = Path(_env("REELS_FACE_MODEL",
 # --- 배경음악 (audio_mix.py) --------------------------------------------
 # 저작권 문제 없는 음원만 assets/music/ 에 넣어라. 인스타 음원 라이브러리는
 # API 로 접근할 수 없고, 저작권 음원을 구우면 자동 음소거되거나 삭제된다.
+# 원본 음성 아래에 깔 때의 볼륨. 말소리를 덮지 않게 낮게 잡는다.
 MUSIC_VOLUME = float(_env("REELS_MUSIC_VOLUME", "0.15"))
+# 원본 음성이 없을 때(사진 슬라이드) 쓰는 볼륨. 0.15 로 깔면 거의 안 들린다.
+MUSIC_VOLUME_SOLO = float(_env("REELS_MUSIC_VOLUME_SOLO", "0.9"))
 ORIGINAL_AUDIO_VOLUME = float(_env("REELS_ORIGINAL_AUDIO_VOLUME", "1.0"))
 FADE_OUT_SECONDS = float(_env("REELS_FADE_OUT_SECONDS", "2"))
 LOOP_MUSIC = _env("REELS_LOOP_MUSIC", "true").lower() not in ("0", "false", "no")

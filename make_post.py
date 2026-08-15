@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import urllib.parse
 from pathlib import Path
 
 import approve
@@ -61,6 +62,11 @@ def build(folder: Path, count: int) -> tuple[list[Path], str]:
     if not caps:
         kinds = [getattr(sh.scene, "kind", "other") for sh in shots]
         caps = post_text.build_story_captions(kinds, seed=folder.name, info=info)
+    # 글에 쓰는 문장은 **올라가는 사진 수만큼**만 쓴다. 릴스는 자막이 컷마다
+    # 얹히지만 피드는 글이 전부라, --one 으로 한 장 올리는데 captions.txt 의
+    # 네 줄이 다 들어가면 사진과 글이 안 맞는다. 첫 줄(훅)은 항상 남긴다.
+    if len(caps) > len(out_files):
+        caps = caps[:max(1, len(out_files))]
     override_cap, extra_tags = post_text.read_overrides(folder)
     caption = override_cap or post_text.build_caption(
         folder.name, caps, extra_tags, info)
@@ -107,7 +113,8 @@ def main() -> int:
     if args.publish and not base:
         print("[!] 게시하려면 공개 URL 이 필요하다. serve.py 를 켜거나 --base-url 을 줘라.")
         return 2
-    urls = [f"{base.rstrip('/')}/{f.name}" for f in files] if base else \
+    # 한글 파일명은 인코딩해서 보낸다 (approve.py 의 같은 처리 참고)
+    urls = [f"{base.rstrip('/')}/{urllib.parse.quote(f.name)}" for f in files] if base else \
            ["(공개 URL 없음)"] * len(files)
 
     if kind == "image":
