@@ -26,28 +26,52 @@ import approve
 import config as cfg
 
 
-def deliver(video: Path, caption: str, dest_dir: Path) -> tuple[Path, Path]:
-    """영상과 글을 dest_dir 에 보기 좋은 이름으로 복사한다."""
-    dest_dir.mkdir(parents=True, exist_ok=True)
-    stem = video.stem
-
-    out_video = dest_dir / f"_릴스_{stem}.mp4"
-    shutil.copy2(video, out_video)
-
-    out_text = dest_dir / f"_게시글_{stem}.txt"
-    steps = [
-        caption.rstrip(),
-        "",
-        "-" * 30,
-        "휴대폰에서 할 일",
+PHONE_STEPS = {
+    "reel": [
         "1) 위 영상을 드라이브 앱에서 저장",
         "2) 인스타 → 릴스 → 그 영상 선택",
         "3) 음악 붙이기 (인기 음원 권장)",
         "4) 이 글 복사해서 붙여넣기",
         "5) 게시",
-    ]
-    out_text.write_text("\n".join(steps), encoding="utf-8")
-    return out_video, out_text
+    ],
+    "photo": [
+        "1) 위 사진들을 드라이브 앱에서 저장",
+        "2) 인스타 → 새 게시물 → 그 사진들 선택 (여러 장이면 순서대로)",
+        "3) 이 글 복사해서 붙여넣기",
+        "4) 게시",
+    ],
+}
+
+
+def deliver(files: list[Path], caption: str, dest_dir: Path, name: str,
+            kind: str = "reel") -> tuple[list[Path], Path]:
+    """완성물과 글을 dest_dir 에 보기 좋은 이름으로 복사한다.
+
+    **종류를 반드시 봐야 한다.** 캐러셀·피드 사진까지 `_릴스_이름.mp4` 로
+    복사하면 알맹이는 JPG 인데 확장자만 mp4 인 파일이 만들어진다.
+    휴대폰에서 열리지 않고, 왜 안 되는지도 알 수 없다.
+    """
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    copied: list[Path] = []
+
+    if kind == "reel":
+        dst = dest_dir / f"_릴스_{files[0].stem}.mp4"
+        shutil.copy2(files[0], dst)
+        copied.append(dst)
+    else:
+        for i, src in enumerate(files, 1):
+            # 원래 확장자를 지킨다. 사진은 사진으로 가야 한다.
+            suffix = f"-{i}" if len(files) > 1 else ""
+            dst = dest_dir / f"_사진_{name}{suffix}{src.suffix}"
+            shutil.copy2(src, dst)
+            copied.append(dst)
+
+    steps = PHONE_STEPS["reel" if kind == "reel" else "photo"]
+    out_text = dest_dir / f"_게시글_{name}.txt"
+    out_text.write_text("\n".join([
+        caption.rstrip(), "", "-" * 30, "휴대폰에서 할 일", *steps,
+    ]), encoding="utf-8")
+    return copied, out_text
 
 
 def main() -> int:
@@ -66,24 +90,36 @@ def main() -> int:
         targets.append((key, rec))
 
     if not targets:
-        print("[i] 보낼 릴스가 없다. 먼저 만들어라: py watch_folder.py --once")
+        print("[i] 보낼 것이 없다. 먼저 만들어라: py make_reel.py <폴더>")
         return 0
 
     for key, rec in targets:
-        video = Path(rec.get("video", ""))
-        if not video.exists():
-            print(f"[!] 영상이 없다: {video}")
+        name = Path(key).name
+        kind = rec.get("kind", "reel")
+        files = [Path(f) for f in (rec.get("files") or [rec.get("video", "")])]
+        missing = [f for f in files if not f.exists()]
+        if not files or missing:
+            print(f"[!] 파일이 없다: {missing[0] if missing else name}")
             continue
-        caption = video.with_suffix(".txt")
-        text = caption.read_text(encoding="utf-8") if caption.exists() else ""
+        if kind == "reel" and files[0].suffix.lower() != ".mp4":
+            print(f"[!] {name}: 릴스로 등록돼 있는데 영상 파일이 아니다 ({files[0].name}). 건너뛴다.")
+            continue
+
+        # 글 파일 위치가 릴스와 피드가 다르다 (approve.py 와 같은 규칙)
+        cap = (files[0].with_suffix(".txt") if kind == "reel"
+               else files[0].with_name(name + "-post.txt"))
+        text = cap.read_text(encoding="utf-8") if cap.exists() else ""
+
         dest = Path(args.to) if args.to else Path(key)
-        v, t = deliver(video, text, dest)
-        print(f"[+] {Path(key).name}")
-        print(f"    영상: {v}")
+        copied, t = deliver(files, text, dest, name, kind)
+        print(f"[+] {name}  [{approve.KIND_NAME.get(kind, '릴스')}]")
+        for c in copied:
+            print(f"    {'영상' if kind == 'reel' else '사진'}: {c}")
         print(f"    글  : {t}")
 
     print()
-    print("휴대폰에서: 드라이브 앱 → 영상 저장 → 인스타 릴스 → 음악 → 글 붙여넣기 → 게시")
+    print("휴대폰에서: 드라이브 앱에서 저장 → 인스타에 올리기 → 글 붙여넣기 → 게시")
+    print("(자세한 순서는 폴더에 만들어진 _게시글_*.txt 아래쪽에 적어뒀다)")
     return 0
 
 
