@@ -3,4 +3,8 @@
 python-dotenv>=1.0
 Pillow>=10.4
 # 초상권 안전장치(얼굴 감지)에 쓴다. 없으면 사진이 전부 제외된다.
-opencv-python>=4.9
+# 5.x 는 안 쓴다 — 얼굴 감지(YuNet)가 5.0 에서 안 되는 사례가 보고됐다.
+opencv-python>=4.9,<5
+# insta_login.py (브라우저 수동 로그인 도구) 에서만 쓴다.
+# 공개 배포판에는 이 도구를 넣지 않아 빠져 있다.
+playwright>=1.47
