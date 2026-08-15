@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -43,6 +44,22 @@ PHONE_STEPS = {
 }
 
 
+def _previous_files(dest_dir: Path, name: str) -> list[Path]:
+    """전에 이 폴더로 내보낸 전달 파일들.
+
+    같은 폴더로 릴스 → 캐러셀처럼 종류를 바꿔 다시 만들면 옛 파일이 남아
+    `_사진_수업.jpg` 와 `_사진_수업-1.jpg` 가 섞인다. 휴대폰에서 어느 것을
+    올려야 할지 알 수 없게 되므로, 내보내기 전에 같은 이름 것만 지운다.
+    (이름이 정확히 같은 것만 지운다. `수업2` 같은 다른 폴더 것은 안 건드린다.)
+    """
+    pat = re.compile(
+        rf"^_(릴스|사진)_{re.escape(name)}(-\d+)?\.[A-Za-z0-9]+$"
+        rf"|^_게시글_{re.escape(name)}\.txt$")
+    if not dest_dir.exists():
+        return []
+    return [f for f in dest_dir.iterdir() if f.is_file() and pat.match(f.name)]
+
+
 def deliver(files: list[Path], caption: str, dest_dir: Path, name: str,
             kind: str = "reel") -> tuple[list[Path], Path]:
     """완성물과 글을 dest_dir 에 보기 좋은 이름으로 복사한다.
@@ -52,6 +69,13 @@ def deliver(files: list[Path], caption: str, dest_dir: Path, name: str,
     휴대폰에서 열리지 않고, 왜 안 되는지도 알 수 없다.
     """
     dest_dir.mkdir(parents=True, exist_ok=True)
+
+    old = _previous_files(dest_dir, name)
+    if old:
+        for f in old:
+            f.unlink()
+        print(f"    (전에 내보낸 파일 {len(old)}개를 지우고 새로 만든다)")
+
     copied: list[Path] = []
 
     if kind == "reel":
