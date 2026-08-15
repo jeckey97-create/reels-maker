@@ -38,7 +38,13 @@ try:
 except Exception:
     pass
 
-TUNNEL_URL_RE = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com")
+# api.trycloudflare.com 은 **터널 주소가 아니다.** cloudflared 가 터널을
+# 요청할 때 쓰는 서버라, 터널 생성이 실패한 오류 로그에도 이 주소가 찍힌다.
+# 그걸 주소로 잡으면 "성공했다" 고 해놓고 게시에서 405 가 난다.
+TUNNEL_URL_RE = re.compile(r"https://(?!api\.)[a-z0-9-]+\.trycloudflare\.com")
+
+# 만든 주소로 실제 파일이 받아지는지 확인할 때 쓰는 임시 파일
+PROBE_NAME = "_serve_check.txt"
 
 
 def find_cloudflared() -> str | None:
@@ -58,6 +64,18 @@ def find_cloudflared() -> str | None:
         if hits:
             return hits[-1]
     return None
+
+
+def _drain(proc: subprocess.Popen) -> None:
+    """cloudflared 출력을 계속 읽어 버린다.
+
+    안 읽으면 파이프가 차서 터널이 멈춘다. 주소를 찾은 뒤에도 계속 필요하다.
+    """
+    try:
+        for _ in proc.stdout or []:
+            pass
+    except Exception:
+        pass
 
 
 def start_file_server(port: int) -> socketserver.TCPServer:
@@ -91,6 +109,37 @@ def start_tunnel(exe: str, port: int, timeout: int = 60) -> tuple[subprocess.Pop
             url = m.group(0)
             break
     return proc, url
+
+
+def verify_tunnel(base_url: str, timeout: int = 40) -> bool:
+    """그 주소로 **우리 파일이 실제로 받아지는지** 확인한다.
+
+    주소 모양만 보고 넘어가면 안 된다. 정규식이 엉뚱한 주소를 잡거나 터널이
+    아직 안 붙었는데 주소만 먼저 찍히는 경우가 있고, 그러면 8장까지 가서야
+    "공개 주소로 파일을 받을 수 없다" 로 드러난다. 여기서 걸러야 한다.
+    """
+    import urllib.request
+
+    token = f"reels-maker {time.time()}"
+    probe = cfg.OUT_DIR / PROBE_NAME
+    probe.write_text(token, encoding="utf-8")
+    url = f"{base_url.rstrip('/')}/{PROBE_NAME}"
+    deadline = time.time() + timeout
+    last = ""
+    try:
+        while time.time() < deadline:
+            try:
+                with urllib.request.urlopen(url, timeout=10) as r:
+                    if r.status == 200 and r.read().decode("utf-8", "replace") == token:
+                        return True
+                    last = f"HTTP {r.status}"
+            except Exception as e:      # 터널이 붙는 데 몇 초 걸린다
+                last = str(e)
+            time.sleep(2)
+    finally:
+        probe.unlink(missing_ok=True)
+    print(f"    (마지막 응답: {last})")
+    return False
 
 
 def write_env(base_url: str) -> None:
@@ -128,6 +177,19 @@ def main() -> int:
     proc, url = start_tunnel(exe, args.port)
     if not url:
         print("[!] 공개 주소를 못 만들었다. 인터넷 연결을 확인하고 다시 실행해라.")
+        print("    회사·학교 네트워크에서 cloudflare 가 막혀 있는 경우가 있다.")
+        proc.terminate()
+        httpd.shutdown()
+        return 1
+
+    # 주소가 나왔다고 끝이 아니다. 실제로 파일이 받아지는지 확인하고 저장한다.
+    threading.Thread(target=_drain, args=(proc,), daemon=True).start()
+    print("[i] 주소가 살아 있는지 확인하는 중…")
+    if not verify_tunnel(url):
+        print()
+        print(f"[!] 주소는 만들어졌는데({url}) 그 주소로 파일이 안 받아진다.")
+        print("    .env 에 저장하지 않았다. 이대로 게시하면 실패한다.")
+        print("    이 창을 닫고 다시 실행해봐라. 계속 그러면 인터넷 환경 문제다.")
         proc.terminate()
         httpd.shutdown()
         return 1
