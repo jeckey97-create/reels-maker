@@ -39,6 +39,15 @@ def fit_vertical(src: Path, dst: Path, label: str = "") -> Path:
     img = images.load_upright(src).convert("RGB")
     W, H = cfg.WIDTH, cfg.HEIGHT
 
+    # 이미 세로(9:16)면 그대로 쓴다. 여기에 흐린 배경을 깔고 축소하면
+    # 멀쩡한 화면을 괜히 작게 만든다.
+    if abs(img.width / img.height - W / H) < 0.02:
+        out = img.resize((W, H), Image.LANCZOS)
+        if label:
+            out = _draw_label(out, label)
+        out.save(dst, quality=95)
+        return dst
+
     # 배경 — 같은 그림을 꽉 채워 자르고 흐리게. 검은 여백보다 훨씬 낫다.
     scale = max(W / img.width, H / img.height)
     bg = img.resize((int(img.width * scale) + 1, int(img.height * scale) + 1),
